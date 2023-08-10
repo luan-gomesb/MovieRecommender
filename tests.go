@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func main() {
+func testeWorker() {
 
 	teste(worker)
 }

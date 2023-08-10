@@ -1,79 +1,47 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"luan-gomesb/MovieRecommender/openaiapi"
 	"net/http"
-	"os"
+	"strings"
 )
 
-type Choice struct {
-	Text          string `json:"text"`
-	Index         int    `json:"index"`
-	Logprobs      string `json:"logprobs"`
-	Finish_reason string `json:"finish_reason"`
-}
-type Usage struct {
-	Prompt_tokens     int `json:"prompt_tokens"`
-	Completion_tokens int `json:"completion_tokens"`
-	Total_tokens      int `json:"total_tokens"`
-}
-
-type ChatResponse struct {
-	Object  string   `json:"object"`
-	Id      string   `json:"id"`
-	Created int      `json:"created"`
-	Model   string   `json:"model"`
-	Choices []Choice `json:"choices"`
-	Usage   Usage    `json:"usage"`
-}
-
-func main2() {
-	askChatgpt()
-	// textjson();
-}
-
-func askChatgpt() {
-
-	apiToken := os.Getenv("OPENAI_API_KEY")
-	data := bytes.NewBuffer([]byte(`{
-	"model": "text-davinci-003",
-	"prompt": "album mais vendido do ACDC",
-	"temperature": 0,
-	"max_tokens": 500,
-	"top_p": 1,
-	"frequency_penalty": 0.0,
-	"presence_penalty": 0.0
-	}`))
-
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/completions", data)
-	if err != nil {
-		fmt.Println(err)
-		return
+func getToken(r *http.Request) (string, error) {
+	var gptToken string
+	if r.Method != "POST" {
+		return "", errors.New("Request method needs to be POST")
+	}
+	if r.Header.Get("Authorization") == "" {
+		return "", errors.New("OpenAI needs to be sended as Bearer token")
 	}
 
-	// Add the authorization header to the request
-	req.Header.Add("Authorization", "Bearer "+apiToken)
-	req.Header.Add("Content-Type", "application/json")
+	userToken := r.Header.Get("Authorization")
 
-	// Send the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
+	if apitokenArr := strings.Split(userToken, " "); len(apitokenArr) == 2 {
+		gptToken = apitokenArr[1]
+	}
+	return gptToken, nil
+}
+
+// "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"
+func hangleGet(w http.ResponseWriter, r *http.Request) {
+	userToken, e := getToken(r)
+	if e != nil {
+		fmt.Fprintf(w, e.Error())
 		return
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
+	response, e := openaiapi.Openaiapi(userToken)
+
+	if e != nil {
+		fmt.Fprintf(w, e.Error())
 		return
 	}
+	fmt.Fprintf(w, response)
+}
 
-	// fmt.Printf("Body : %s",string(body))
-	var response ChatResponse
-	json.Unmarshal(body, &response)
-	fmt.Println(response.Choices[0].Text)
+func main() {
+	http.HandleFunc("/", hangleGet)
+	http.ListenAndServe(":8080", nil)
 }
