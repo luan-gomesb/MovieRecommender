@@ -25,7 +25,6 @@ func getToken(r *http.Request) (string, error) {
 	return gptToken, nil
 }
 
-// "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"
 func hangleGet(w http.ResponseWriter, r *http.Request) {
 	userToken, e := getToken(r)
 	if e != nil {
